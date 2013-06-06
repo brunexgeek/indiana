@@ -1,4 +1,4 @@
-indiana
+Indiana
 =======
 
-Indiana, the home automation platform.
+Indiana is a home automation platform running in a MSP430 microcontroller.
