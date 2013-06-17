@@ -10,15 +10,15 @@ This code was inspired by two other implementations: "nrf24L01+ Radio Library" (
 
 When you call the initialization function, then device will be configured with some default values. 
 
-  nrf24_initialize();
+    nrf24_initialize();
 
 No pipes will be enabled for use yet. To enable a pipe for receive packets, use the "openReadingPipe" function.
 
-  // enable the pipe 0 for receive through the address 0x33cc3301
-  nrf24_openReadingPipe(0, 0x33cc3301);
+    // enable the pipe 0 for receive through the address 0x33cc3301
+    nrf24_openReadingPipe(0, 0x33cc3301);
 
 The nRF24L01+ library offer a set of functions to configure some parameters, like the channel and payload length.
 
-  nrf24_setChannel(1);
+    nrf24_setChannel(1);
 
 (under construction)
