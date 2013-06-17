@@ -58,6 +58,7 @@
 #define NRF24ERR_INVALID_VALUE               ((uint8_t)0x01)
 #define NRF24ERR_INVALID_INPUT_POINTER       ((uint8_t)0x02)
 #define NRF24ERR_INVALID_OUTPUT_POINTER      ((uint8_t)0x02)
+#define NRF24ERR_INVALID_MODE                ((uint8_t)0x03)
 
 #ifndef __cplusplus
 typedef uint8_t bool;
@@ -70,9 +71,16 @@ typedef struct
 {
 
 	/**
-	 * Indicates if the radio it's in RX mode.
+	 * Indicates if the network is in TX mode.
+	 *
+	 * @see openWritingPipe
 	 */
-	uint8_t isRxMode : 1;
+	uint8_t isTxMode : 1;
+
+	/**
+	 * Indicates if the pipe 0 is open for reading.
+	 */
+	uint8_t	isWritePipeRxMode : 1;
 
 	uint8_t reserved : 7;
 
@@ -85,7 +93,7 @@ typedef struct
 	 * Store the address for the pipe 0, because while writing can be needed
 	 * change the RX address due auto-acknowledgement.
 	 */
-	uint32_t firstPipeAddress;
+	uint32_t writePipeAddress;
 
 } nrf24_context_t;
 
@@ -254,29 +262,29 @@ void nrf24_powerDown();
 uint8_t spi_transfer(
 	uint8_t tx );
 
-void nrf24_transferSync(
+void spi_transferSync(
 	uint8_t* dataout,
 	uint8_t* datain,
 	uint8_t len);
 
-void nrf24_transmitSync(
+void spi_transmitSync(
 	uint8_t* dataout,
 	uint8_t len);
 
-void nrf24_setRegister(
+void spi_setRegister(
 	uint8_t reg,
 	uint8_t value );
 
-uint8_t nrf24_getRegister(
+uint8_t spi_getRegister(
 	uint8_t reg,
 	uint8_t *value );
 
-void nrf24_readRegister(
+void spi_readRegister(
 	uint8_t reg,
 	uint8_t* value,
 	uint8_t len );
 
-void nrf24_writeRegister(
+void spi_writeRegister(
 	uint8_t reg,
 	const uint8_t* value,
 	uint8_t len );

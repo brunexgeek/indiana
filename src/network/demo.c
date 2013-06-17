@@ -7,7 +7,7 @@ int main( int argc, char **argv )
 	network_context_t context;
 
 	net_initialize(&context);
-	net_zeroconf(&context, 0);
+	net_start(&context, 1, 32);
 
 	return 0;
 }

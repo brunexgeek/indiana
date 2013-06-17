@@ -115,14 +115,14 @@ uint8_t net_start(
 	// setup the internal addresses
 	result = net_setAddress(context, address);
 	if (result != NET_OK) return result;
-	// Set up the radio the way we want it to look
-	///radio.setChannel(channel);
-	///radio.setDataRate(RF24_1MBPS);
-	///radio.setCRCLength(RF24_CRC_16);
+	// configure the radio
+	nrf24_setChannel(channel);
+	nrf24_setPayloadLength(NET_FRAME_LENGTH);
 	// configure the radio pipelines and start listening
-	///radio.openReadingPipe(0, BROADCAST_ADDRESS);
-	///radio.openReadingPipe(1, nodeAddress);
-	///radio.startListening();
+	nrf24_openReadingPipe(0, BROADCAST_ADDRESS);
+	nrf24_openReadingPipe(1, address);
+	nrf24_startListening();
+
 	return NET_OK;
 }
 
@@ -342,8 +342,8 @@ static uint8_t net_write(
 	do
 	{
 		// TODO: get the OBSERVE_TX and STATUS in one step
-		nrf24_getRegister(OBSERVE_TX, &observe_tx);
-		nrf24_getRegister(STATUS, &status);
+		spi_getRegister(OBSERVE_TX, &observe_tx);
+		spi_getRegister(STATUS, &status);
 		status &= ( 1 << TX_DS | 1 << MAX_RT );
 	}
 	while( status == 0 && ( net_getMillis() - sentAt < 500 ) );
