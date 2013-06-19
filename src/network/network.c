@@ -127,56 +127,30 @@ uint8_t net_start(
 }
 
 
-/*
-void update(void)
+void net_update(
+	network_context_t *context )
 {
-  // if there is data ready
-  uint8_t pipe_num;
-  while ( radio.available(&pipe_num) )
-  {
-    // Dump the payloads until we've gotten everything
-    boolean done = false;
-    while (!done)
-    {
-      // Fetch the payload, and see if this was the last one.
-      done = radio.read( frameBuffer, sizeof(frameBuffer) );
+	rnp_header_t *header;
 
-      // Read the beginning of the frame as the header
-      const RF24NetworkHeader& header = * reinterpret_cast<RF24NetworkHeader*>(frameBuffer);
+	while ( nrf24_isDataReady() )
+	{
+		// fetch the next packet from the radio
+		nrf24_receive(context->frameBuffer);
+		header = (rnp_header_t*) &context->frameBuffer;
 
-      IF_SERIAL_DEBUG(printf_P(PSTR("%lu: MAC Received on %u %s\n\r"),millis(),pipe_num,header.toString()));
-      IF_SERIAL_DEBUG(const uint16_t* i = reinterpret_cast<const uint16_t*>(frameBuffer + sizeof(RF24NetworkHeader));printf_P(PSTR("%lu: NET message %04x\n\r"),millis(),*i));
+		// check whether we have a valid address
+		if ( !net_isValidHostAddress(header->dstAddress) ||
+			 !net_isValidHostAddress(header->srcAddress) ) continue;
 
-      // Throw it away if it's not a valid address
-      if ( !is_valid_address(header.to_node) )
-	continue;
+		printf("Packet received from 0%05o\n", header->srcAddress);
 
-      // Is this for us?
-      if ( header.to_node == this->address )
-	// Add it to the buffer of frames for us
-	enqueue();
-      else
-	// Relay it
-	write(header.to_node);
-
-      // NOT NEEDED anymore.  Now all reading pipes are open to start.
-#if 0
-      // If this was for us, from one of our children, but on our listening
-      // pipe, it could mean that we are not listening to them.  If so, open up
-      // and listen to their talking pipe
-
-      if ( header.to_node == this->address && pipe_num == 0 && is_descendant(header.from_node) )
-      {
-	uint8_t pipe = pipe_to_descendant(header.from_node);
-	radio.openReadingPipe(pipe,pipe_address(this->address,pipe));
-
-	// Also need to open pipe 1 so the system can get the full 5-byte address of the pipe.
-	radio.openReadingPipe(1,pipe_address(this->address,1));
-      }
-#endif
-    }
-  }
-}*/
+		// check the destination of the packet
+		if (header->dstAddress == context->hostAddress)
+			net_enqueue(context);
+		else
+			net_transmit(context);
+	}
+}
 
 
 static uint8_t net_enqueue(
@@ -479,8 +453,8 @@ uint8_t net_updateUnreachables(
 	}
 	return NET_OK;
 }
-
 #endif // (ENABLE_DIRECT_SEND == 1)
+
 
 bool net_isDirectChild(
 	network_context_t *context,

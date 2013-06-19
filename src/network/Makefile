@@ -1,7 +1,7 @@
 #!/bin/make -f
 
 
-CFLAGS:=-Wall -ggdb -O0
+CFLAGS:=-Wall -ggdb
 OBJECTS=network.o \
 	nrf24.o \
 	nrf24drv.o \
@@ -15,4 +15,4 @@ clean:
 	$(RM) $(OBJECTS)
 
 %.o : %.c
-	$(CC) -O2 $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@

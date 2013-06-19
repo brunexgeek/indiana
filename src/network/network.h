@@ -117,6 +117,9 @@ uint8_t net_start(
 	uint8_t channel,
 	rnp_address_t address );
 
+void net_update(
+	network_context_t *context );
+
 uint8_t net_receive(
 	network_context_t *context,
 	rnp_header_t *header,

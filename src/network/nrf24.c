@@ -48,8 +48,7 @@ static void nrf24_config(
 }
 
 
-uint8_t nrf24_initialize(
-	nrf24_context_t *context )
+uint8_t nrf24_initialize()
 {
 	nrf24_setupPins();
 	nrf24_ce_digitalWrite(LOW);
@@ -307,34 +306,32 @@ void nrf24_getRetransCount(
 }
 
 
-void nrf24_send(
-	uint8_t* value )
+uint8_t nrf24_send(
+	uint8_t* packet,
+	uint16_t packetLen )
 {
+	uint8_t c;
+
+	// check the parameters
+	if (packet == 0) return NRF24ERR_INVALID_INPUT_POINTER;
+	// check whether the packet bigger than the writing pipe payload length
+	if (packetLen > context.payloadLength) return NRF24ERR_INVALID_PACKET_TOO_LONG;
+
 	// change to standby-I mode
-	nrf24_ce_digitalWrite(LOW);
-	// clear the RX_DR, TX_DS and MAX_RT flags
-	spi_setRegister(STATUS,(1<<RX_DR)|(1<<TX_DS)|(1<<MAX_RT)); 
-	// set to transmitter mode and power up
-	spi_setRegister(CONFIG,nrf24_CONFIG|((1<<PWR_UP)|(0<<PRIM_RX)));
-
-	/*
-	// Do we really need to flush TX fifo each time ? 
-	#if 1
-	// Pull down chip select 
-	nrf24_csn_digitalWrite(LOW);
-	// Write cmd to flush transmit FIFO 
-	spi_transfer(FLUSH_TX);
-	// Pull up chip select 
-	nrf24_csn_digitalWrite(HIGH);
-	#endif */
-
-	// write the packet to the TX queue
+	//nrf24_ce_digitalWrite(LOW);
+	// write the packet to the TX FIFO pading with zero (if necessary)
 	nrf24_csn_digitalWrite(LOW);
 	spi_transfer(W_TX_PAYLOAD);
-	spi_transmitSync(value,context.payloadLength);   
+	spi_transmitSync(packet, packetLen);
+	for (c = packetLen; c < context.payloadLength; ++c)
+		spi_transfer(0);
 	nrf24_csn_digitalWrite(HIGH);
-	// start the transmission (non-blocking)
-	nrf24_ce_digitalWrite(HIGH);
+
+	// wait for 10us to ensure the at least one packet will be sent if
+	// the 'stopWriting' function is called immidiately
+	usleep(10);
+
+	return NRF24_OK;
 }
 
 
@@ -343,7 +340,9 @@ bool nrf24_isSending()
 	uint8_t status;
 
 	// read the current status
-	status = nrf24_getStatus();
+	nrf24_csn_digitalWrite(LOW);
+	status = spi_transfer(NOP);
+	nrf24_csn_digitalWrite(HIGH);
 
 	// if sending successful (TX_DS) or max retries exceded (MAX_RT)
 	if((status & ((1 << TX_DS)  | (1 << MAX_RT))))
@@ -351,6 +350,7 @@ bool nrf24_isSending()
 
 	return TRUE;
 }
+
 
 uint8_t nrf24_getStatus()
 {
@@ -361,29 +361,31 @@ uint8_t nrf24_getStatus()
 	return rv;
 }
 
-uint8_t nrf24_lastMessageStatus()
+
+/*uint8_t nrf24_lastMessageStatus()
 {
     uint8_t rv;
 
     rv = nrf24_getStatus(context);
 
-    /* Transmission went OK */
+    // Transmission went OK
     if((rv & ((1 << TX_DS))))
     {
        return NRF24_TRANSMISSON_OK;
     }
-    /* Maximum retransmission count is reached */
-    /* Last message probably went missing ... */
+    // Maximum retransmission count is reached
+    // Last message probably went missing ...
     else if((rv & ((1 << MAX_RT))))
     {
         return NRF24_MESSAGE_LOST;
     }  
-    /* Probably still sending ... */
+    // Probably still sending ...
     else
     {
         return 0xFF;
     }
-}
+}*/
+
 
 void nrf24_startListening()
 {
@@ -395,12 +397,34 @@ void nrf24_startListening()
 	spi_setRegister(STATUS,(1<<RX_DR)|(1<<TX_DS)|(1<<MAX_RT)); 
 	// power up the radio in RX mode
 	nrf24_ce_digitalWrite(LOW);
-	spi_setRegister(CONFIG,nrf24_CONFIG|((1<<PWR_UP)|(1<<PRIM_RX)));    
+	spi_setRegister(CONFIG, (1 << PWR_UP) | (1 << PRIM_RX) );
 	nrf24_ce_digitalWrite(HIGH);
 }
 
 
 void nrf24_stopListening()
+{
+	// put the radio in standby-I
+	nrf24_ce_digitalWrite(LOW);
+}
+
+
+void nrf24_startWriting()
+{
+	// flush the RX queue
+	nrf24_csn_digitalWrite(LOW);
+	spi_transfer(FLUSH_RX);
+	nrf24_csn_digitalWrite(HIGH);
+	// clear the RX_DR, TX_DS and MAX_RT flags
+	spi_setRegister(STATUS,(1<<RX_DR)|(1<<TX_DS)|(1<<MAX_RT));
+	// power up the radio in TX mode (or standby-II if TX FIFO is empty)
+	nrf24_ce_digitalWrite(LOW);
+	spi_setRegister(CONFIG, (1 << PWR_UP) | (0 << PRIM_RX) );
+	nrf24_ce_digitalWrite(HIGH);
+}
+
+
+void nrf24_stopWriting()
 {
 	// put the radio in standby-I
 	nrf24_ce_digitalWrite(LOW);
@@ -426,7 +450,6 @@ void nrf24_standby()
 }
 
 
-/* software spi routine */
 uint8_t spi_transfer(
 	uint8_t tx )
 {
@@ -435,7 +458,7 @@ uint8_t spi_transfer(
 
 	nrf24_sck_digitalWrite(LOW);
 
-	for(i=0;i<8;i++)
+	/*for(i=0;i<8;i++)
 	{
 
 		if(tx & (1<<(7-i)))
@@ -451,7 +474,24 @@ uint8_t spi_transfer(
 
 		nrf24_sck_digitalWrite(LOW);
 
-	}
+	}*/
+
+	nrf24_mosi_digitalWrite(tx & (1 << 7));
+	rx |= nrf24_miso_digitalRead() << 7;
+	nrf24_mosi_digitalWrite(tx & (1 << 6));
+	rx |= nrf24_miso_digitalRead() << 6;
+	nrf24_mosi_digitalWrite(tx & (1 << 5));
+	rx |= nrf24_miso_digitalRead() << 5;
+	nrf24_mosi_digitalWrite(tx & (1 << 4));
+	rx |= nrf24_miso_digitalRead() << 4;
+	nrf24_mosi_digitalWrite(tx & (1 << 3));
+	rx |= nrf24_miso_digitalRead() << 3;
+	nrf24_mosi_digitalWrite(tx & (1 << 2));
+	rx |= nrf24_miso_digitalRead() << 2;
+	nrf24_mosi_digitalWrite(tx & (1 << 1));
+	rx |= nrf24_miso_digitalRead() << 1;
+	nrf24_mosi_digitalWrite(tx & 1);
+	rx |= nrf24_miso_digitalRead();
 
 	return rx;
 }

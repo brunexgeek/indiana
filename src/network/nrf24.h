@@ -14,8 +14,10 @@
 #ifndef NRF24
 #define NRF24
 
-#include "nrf24l01p.h"
 #include <stdint.h>
+#include <unistd.h>
+#include "nrf24l01p.h"
+
 
 #define LOW 0
 #define HIGH 1
@@ -59,6 +61,7 @@
 #define NRF24ERR_INVALID_INPUT_POINTER       ((uint8_t)0x02)
 #define NRF24ERR_INVALID_OUTPUT_POINTER      ((uint8_t)0x02)
 #define NRF24ERR_INVALID_MODE                ((uint8_t)0x03)
+#define NRF24ERR_INVALID_PACKET_TOO_LONG     ((uint8_t)0x04)
 
 #ifndef __cplusplus
 typedef uint8_t bool;
@@ -227,11 +230,12 @@ void nrf24_getRetransCount(
 	uint8_t *count );
 
 /**
- * Sends a data package to the default address. Be sure to send the correct
+ * Put a packet in the TX FIFO. Be sure to send the correct
  * amount of bytes as configured as payload on the receiver.
  */
-void nrf24_send(
-	uint8_t* value );
+uint8_t nrf24_send(
+	uint8_t* packet,
+	uint16_t packetLen );
 
 /**
  * Returns a boolean value indicating if the radio is currently sending a packet.
@@ -242,13 +246,32 @@ uint8_t nrf24_getStatus();
 
 uint8_t nrf24_lastMessageStatus();
 
+/**
+ * Enter in RX mode.
+ */
 void nrf24_startListening();
 
+/**
+ * Exit the RX mode.
+ */
 void nrf24_stopListening();
 
+/**
+ * Enter in standby-II mode to send packets.
+ *
+ */
+void nrf24_startWriting();
+
+/**
+ * Exit standby-II mode.
+ */
+void nrf24_stopWriting();
+
+// TODO: merge this with 'send'.
 uint8_t nrf24_openWritingPipe(
 	uint32_t address );
 
+// TODO: merge this with 'stopWriting'
 uint8_t nrf24_closeWritingPipe();
 
 void nrf24_standby();
@@ -345,7 +368,7 @@ void    nrf24_writeRegister(uint8_t reg, uint8_t* value, uint8_t len);
  *    - Set CSN pin output
  *    - Set CE pin output     */
 /* -------------------------------------------------------------------------- */
-extern void nrf24_setupPins();
+extern inline void nrf24_setupPins();
 
 /* -------------------------------------------------------------------------- */
 /* nrf24 CE pin control function
