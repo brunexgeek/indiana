@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 #include <unistd.h>
+#include <time.h>
 #include "nrf24l01p.h"
 
 
@@ -49,8 +50,6 @@
 #define NRF24_MAX_FRAME_LENGTH          0x20
 
 
-#define nrf24_ADDR_LEN 4
-#define nrf24_CONFIG ((1<<EN_CRC)|(0<<CRCO))
 
 #define NRF24_TRANSMISSON_OK 0
 #define NRF24_MESSAGE_LOST   1
@@ -61,7 +60,9 @@
 #define NRF24ERR_INVALID_INPUT_POINTER       ((uint8_t)0x02)
 #define NRF24ERR_INVALID_OUTPUT_POINTER      ((uint8_t)0x02)
 #define NRF24ERR_INVALID_MODE                ((uint8_t)0x03)
-#define NRF24ERR_INVALID_PACKET_TOO_LONG     ((uint8_t)0x04)
+#define NRF24ERR_INVALID_PACKET_LENGTH       ((uint8_t)0x04)
+#define NRF24ERR_TIMEOUT                     ((uint8_t)0x05)
+#define NRF24ERR_MAX_RETRANSMISSIONS         ((uint8_t)0x06)
 
 #ifndef __cplusplus
 typedef uint8_t bool;
@@ -74,29 +75,32 @@ typedef struct
 {
 
 	/**
-	 * Indicates if the network is in TX mode.
+	 * Indicates if the nRF24 is in active TX mode.
 	 *
-	 * @see openWritingPipe
+	 * @see startTransmission()
 	 */
-	uint8_t isTxMode : 1;
+	uint16_t isTxMode : 1;
 
 	/**
-	 * Indicates if the pipe 0 is open for reading.
+	 * Indicates if the nRF24 is in active RX mode.
+	 *
+	 * @see startListening()
 	 */
-	uint8_t	isWritePipeRxMode : 1;
-
-	uint8_t reserved : 7;
+	uint16_t isRxMode : 1;
 
 	/**
 	 * Default payload length, used in all pipes.
 	 */
-	uint8_t payloadLength;
+	uint16_t payloadLength : 5;
+
+	uint16_t reserved : 9;
+
 
 	/**
 	 * Store the address for the pipe 0, because while writing can be needed
 	 * change the RX address due auto-acknowledgement.
 	 */
-	uint32_t writePipeAddress;
+	uint32_t firstPipeAddress;
 
 } nrf24_context_t;
 
@@ -137,12 +141,17 @@ uint8_t nrf24_openReadingPipe(
 	uint8_t pipe,
 	uint32_t address );
 
+uint8_t nrf24_closeReadingPipe(
+	uint8_t pipe );
 
 /**
  * Set the channel number from 0 to 127.
  */
 uint8_t nrf24_setChannel(
 	uint8_t channel );
+
+uint8_t nrf24_getChannel(
+	uint8_t *channel );
 
 /**
  * Enable or disable the auto-acknowledgment for indivial pipes. If
@@ -175,16 +184,8 @@ void nrf24_getPowerLevel(
  * Define the data ratio used by the transmiter. The valid rations are
  * NRF24_1MBPS and NRF24_2MBPS.
  */
-uint8_t nrf24_setDataRatio(
+uint8_t nrf24_setDataRate(
 	uint8_t ratio );
-
-/**
- * Define the four-byte radio address for the given pipe.
- */
-uint8_t nrf24_setRxAddress(
-	uint8_t pipe,
-	uint32_t address );
-
 
 /**
  * Define the payload length for all receivers and the transmiter.
@@ -200,27 +201,15 @@ uint8_t nrf24_getPayloadLength(
 	uint8_t *payloadLength );
 
 /**
- * Define the four-byte radio address for the transmiter.
- */
-void nrf24_setTxAddress(
-	uint32_t address );
-
-/**
  * Returns a boolean value indicating if some data is
  * available for reading.
  */
 bool nrf24_isDataReady();
 
 /**
- * Returns a boolean value indicating if the receiver queue
- * if empty.
- */
-bool nrf24_isRxFifoEmpty();
-
-/**
  * Reads payload bytes into data array.
  */
-void nrf24_receive(
+uint8_t nrf24_receive(
 	uint8_t* data );
 
 /**
@@ -233,131 +222,135 @@ void nrf24_getRetransCount(
  * Put a packet in the TX FIFO. Be sure to send the correct
  * amount of bytes as configured as payload on the receiver.
  */
-uint8_t nrf24_send(
+uint8_t nrf24_transmit(
+	uint32_t address,
 	uint8_t* packet,
 	uint16_t packetLen );
 
 /**
  * Returns a boolean value indicating if the radio is currently sending a packet.
  */
-bool nrf24_isSending();
+bool nrf24_isTransmitting();
 
 uint8_t nrf24_getStatus();
-
-uint8_t nrf24_lastMessageStatus();
 
 /**
  * Enter in RX mode.
  */
-void nrf24_startListening();
+uint8_t nrf24_startListening();
 
 /**
  * Exit the RX mode.
  */
-void nrf24_stopListening();
+uint8_t nrf24_stopListening();
 
 /**
  * Enter in standby-II mode to send packets.
  *
  */
-void nrf24_startWriting();
+uint8_t nrf24_startTransmission();
 
 /**
  * Exit standby-II mode.
  */
-void nrf24_stopWriting();
+uint8_t nrf24_stopTransmission();
 
-// TODO: merge this with 'send'.
-uint8_t nrf24_openWritingPipe(
-	uint32_t address );
+/**
+ * Block the program execution until the transmission is finished.
+ */
+uint8_t nrf24_waitTransmission();
 
-// TODO: merge this with 'stopWriting'
-uint8_t nrf24_closeWritingPipe();
-
+/**
+ * Put the radio in standby-I mode.
+ */
 void nrf24_standby();
 
+/**
+ * Put the radio in power down mode.
+ */
 void nrf24_powerDown();
 
 /*
- * Low level functions interface.
+ * SPI functions.
  */
 
+/**
+ * Send and receive a single byte over SPI.
+ *
+ * @param tx
+ * @return
+ */
 uint8_t spi_transfer(
 	uint8_t tx );
 
+/**
+ * Send and receive (simultaneously) multiple bytes over SPI.
+ * @param dataout
+ * @param datain
+ * @param len
+ */
 void spi_transferSync(
 	uint8_t* dataout,
 	uint8_t* datain,
 	uint8_t len);
 
+/**
+ * Send multiple bytes over SPI.
+ *
+ * @param dataout
+ * @param len
+ */
 void spi_transmitSync(
 	uint8_t* dataout,
 	uint8_t len);
 
+/**
+ * Write a single byte to a register.
+ * @param reg
+ * @param value
+ */
 void spi_setRegister(
 	uint8_t reg,
 	uint8_t value );
 
+/**
+ * Read a single byte from a register.
+ *
+ * @param reg
+ * @param value
+ * @return
+ */
 uint8_t spi_getRegister(
 	uint8_t reg,
 	uint8_t *value );
 
+/**
+ * Read multiple bytes from a register.
+ * @param reg
+ * @param value
+ * @param len
+ */
 void spi_readRegister(
 	uint8_t reg,
 	uint8_t* value,
 	uint8_t len );
 
+
+/**
+ * Write multiple bytes to a register.
+ *
+ * @param [in] reg Register code.
+ * @param [in] value Value to be writed in the register.
+ * @param [in] len Length of the new register value.
+ */
 void spi_writeRegister(
 	uint8_t reg,
 	const uint8_t* value,
 	uint8_t len );
 
-/*
-// adjustment functions 
-void    nrf24_init();
-void    nrf24_rx_address(uint8_t* adr);
-void    nrf24_tx_address(uint8_t* adr);
 
-uint8_t nrf24_config(
-	nrf24_context_t *context,
-	uint8_t channel,
-	uint8_t payloadLength );
-
-// state check functions 
-uint8_t nrf24_dataReady();
-uint8_t nrf24_isSending();
-uint8_t nrf24_getStatus();
-uint8_t nrf24_rxFifoEmpty();
-
-// core TX / RX functions 
-void    nrf24_send(uint8_t* value);
-void    nrf24_receive(uint8_t* data);
-
-// use in dynamic length mode 
-uint8_t nrf24_payloadLength();
-
-// post transmission analysis 
-uint8_t nrf24_lastMessageStatus();
-uint8_t nrf24_retransmissionCount();
-
-// Returns the payload length 
-uint8_t nrf24_payload_length();
-
-// power management 
-void    nrf24_powerUpRx();
-void    nrf24_powerUpTx();
-void    nrf24_powerDown();
-
-// low level interface ... 
-uint8_t spi_transfer(uint8_t tx);
-void    nrf24_transmitSync(uint8_t* dataout,uint8_t len);
-void    nrf24_transferSync(uint8_t* dataout,uint8_t* datain,uint8_t len);
-void    nrf24_configRegister(uint8_t reg, uint8_t value);
-void    nrf24_readRegister(uint8_t reg, uint8_t* value, uint8_t len);
-void    nrf24_writeRegister(uint8_t reg, uint8_t* value, uint8_t len);
-*/
 /* -------------------------------------------------------------------------- */
-/* You should implement the platform spesific functions in your code */
+/* You should implement the platform spesific functions in your code          */
 /* -------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------- */
@@ -368,35 +361,39 @@ void    nrf24_writeRegister(uint8_t reg, uint8_t* value, uint8_t len);
  *    - Set CSN pin output
  *    - Set CE pin output     */
 /* -------------------------------------------------------------------------- */
-extern inline void nrf24_setupPins();
+extern void nrf24_setupPins();
 
 /* -------------------------------------------------------------------------- */
 /* nrf24 CE pin control function
  *    - state:1 => Pin HIGH
  *    - state:0 => Pin LOW     */
 /* -------------------------------------------------------------------------- */
-extern void nrf24_ce_digitalWrite(uint8_t state);
+extern void nrf24_ce_digitalWrite(
+	uint8_t state );
 
 /* -------------------------------------------------------------------------- */
 /* nrf24 CE pin control function
  *    - state:1 => Pin HIGH
  *    - state:0 => Pin LOW     */
 /* -------------------------------------------------------------------------- */
-extern void nrf24_csn_digitalWrite(uint8_t state);
+extern void nrf24_csn_digitalWrite(
+	uint8_t state );
 
 /* -------------------------------------------------------------------------- */
 /* nrf24 SCK pin control function
  *    - state:1 => Pin HIGH
  *    - state:0 => Pin LOW     */
 /* -------------------------------------------------------------------------- */
-extern void nrf24_sck_digitalWrite(uint8_t state);
+extern void nrf24_sck_digitalWrite(
+	uint8_t state );
 
 /* -------------------------------------------------------------------------- */
 /* nrf24 MOSI pin control function
  *    - state:1 => Pin HIGH
  *    - state:0 => Pin LOW     */
 /* -------------------------------------------------------------------------- */
-extern void nrf24_mosi_digitalWrite(uint8_t state);
+extern void nrf24_mosi_digitalWrite(
+	uint8_t state );
 
 /* -------------------------------------------------------------------------- */
 /* nrf24 MISO pin read function

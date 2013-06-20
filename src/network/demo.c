@@ -2,20 +2,6 @@
 
 
 
-void nrftest()
-{
-	nrf24_initialize();
-
-	nrf24_openWritingPipe(012);
-
-	nrf24_send(0, 32);
-
-	nrf24_startWriting();
-
-	nrf24_stopWriting();
-}
-
-
 int main( int argc, char **argv )
 {
 	network_context_t context;

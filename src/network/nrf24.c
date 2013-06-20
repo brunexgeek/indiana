@@ -80,11 +80,7 @@ uint8_t nrf24_openReadingPipe(
 	value = (RX_ADDR_P0 << pipe);
 	// we may need to change the pipe 0 address when sending a packet (due
 	// auto-acknowledgment), thus must to store the address
-	if (pipe == 0)
-	{
-		context.writePipeAddress = address;
-		context.isWritePipeRxMode = TRUE;
-	}
+	if (pipe == 0) context.firstPipeAddress = address;
 	// set the pipe RX address
 	if (pipe < 2)
 		spi_writeRegister(pipe, (uint8_t*)&address, sizeof(uint32_t));
@@ -106,13 +102,11 @@ uint8_t nrf24_closeReadingPipe(
 	spi_setRegister(EN_RXADDR, value);
 	value = (RX_ADDR_P0 << pipe);
 
-	if (pipe == 0) context.isWritePipeRxMode = FALSE;
-
 	return NRF24_OK;
 }
 
 
-uint8_t nrf24_openWritingPipe(
+/*uint8_t nrf24_openWritingPipe(
 	uint32_t address )
 {
 	// change the current mode
@@ -128,6 +122,7 @@ uint8_t nrf24_openWritingPipe(
 
 uint8_t nrf24_closeWritingPipe()
 {
+
 	if (!context.isTxMode) return NRF24ERR_INVALID_MODE;
 	// reset the pipe 0 configuration
 	if (context.isWritePipeRxMode)
@@ -135,7 +130,7 @@ uint8_t nrf24_closeWritingPipe()
 	else
 		nrf24_closeReadingPipe(0);
 	return NRF24_OK;
-}
+}*/
 
 
 uint8_t nrf24_setChannel(
@@ -217,7 +212,7 @@ void nrf24_getPowerLevel(
 }
 
 
-uint8_t nrf24_setDataRatio(
+uint8_t nrf24_setDataRate(
 	uint8_t ratio )
 {
 	uint8_t value;
@@ -268,19 +263,23 @@ bool nrf24_isDataReady()
 
 
 // TODO: decide what we'll do with this function
-uint8_t nrf24_payloadLength()
+/*uint8_t nrf24_payloadLength()
 {
     uint8_t status;
     nrf24_csn_digitalWrite(LOW);
     spi_transfer(R_RX_PL_WID);
     status = spi_transfer(0x00);
     return status;
-}
+}*/
 
 
-void nrf24_receive(
+uint8_t nrf24_receive(
 	uint8_t* data )
 {
+	if (context.isRxMode == 0) return NRF24ERR_INVALID_MODE;
+
+	// TODO: check whether the RX FIFO is empty
+
 	// Pull down chip select
 	nrf24_csn_digitalWrite(LOW);                               
 
@@ -295,6 +294,8 @@ void nrf24_receive(
 
 	// Reset status register
 	spi_setRegister(STATUS,(1<<RX_DR));
+
+	return NRF24_OK;
 }
 
 
@@ -306,38 +307,40 @@ void nrf24_getRetransCount(
 }
 
 
-uint8_t nrf24_send(
+uint8_t nrf24_transmit(
+	uint32_t address,
 	uint8_t* packet,
 	uint16_t packetLen )
 {
-	uint8_t c;
+	if (context.isTxMode == 0) return NRF24ERR_INVALID_MODE;
 
 	// check the parameters
 	if (packet == 0) return NRF24ERR_INVALID_INPUT_POINTER;
-	// check whether the packet bigger than the writing pipe payload length
-	if (packetLen > context.payloadLength) return NRF24ERR_INVALID_PACKET_TOO_LONG;
+	if (packetLen != context.payloadLength) return NRF24ERR_INVALID_PACKET_LENGTH;
 
-	// change to standby-I mode
-	//nrf24_ce_digitalWrite(LOW);
+	// change the TX and RX address (pipe 0)
+	spi_writeRegister(RX_ADDR_P0, (uint8_t*)&address, sizeof(uint32_t));
+	spi_writeRegister(TX_ADDR, (uint8_t*)&address, sizeof(uint32_t));
+
 	// write the packet to the TX FIFO pading with zero (if necessary)
 	nrf24_csn_digitalWrite(LOW);
 	spi_transfer(W_TX_PAYLOAD);
 	spi_transmitSync(packet, packetLen);
-	for (c = packetLen; c < context.payloadLength; ++c)
-		spi_transfer(0);
 	nrf24_csn_digitalWrite(HIGH);
 
 	// wait for 10us to ensure the at least one packet will be sent if
-	// the 'stopWriting' function is called immidiately
+	// the 'stopTransmission' function is called immidiately
 	usleep(10);
 
 	return NRF24_OK;
 }
 
 
-bool nrf24_isSending()
+bool nrf24_isTransmitting()
 {
 	uint8_t status;
+
+	if (context.isTxMode == 0) return FALSE;
 
 	// read the current status
 	nrf24_csn_digitalWrite(LOW);
@@ -387,8 +390,11 @@ uint8_t nrf24_getStatus()
 }*/
 
 
-void nrf24_startListening()
+uint8_t nrf24_startListening()
 {
+	if (context.isTxMode != 0) return NRF24ERR_INVALID_MODE;
+	if (context.isRxMode != 0) return NRF24_OK;
+
 	// flush the RX queue
 	nrf24_csn_digitalWrite(LOW);
 	spi_transfer(FLUSH_RX);
@@ -399,18 +405,27 @@ void nrf24_startListening()
 	nrf24_ce_digitalWrite(LOW);
 	spi_setRegister(CONFIG, (1 << PWR_UP) | (1 << PRIM_RX) );
 	nrf24_ce_digitalWrite(HIGH);
+
+	return NRF24_OK;
 }
 
 
-void nrf24_stopListening()
+uint8_t nrf24_stopListening()
 {
+	if (context.isRxMode == 0) return NRF24ERR_INVALID_MODE;
+
 	// put the radio in standby-I
 	nrf24_ce_digitalWrite(LOW);
+
+	return NRF24_OK;
 }
 
 
-void nrf24_startWriting()
+uint8_t nrf24_startTransmission()
 {
+	if (context.isRxMode != 0) return NRF24ERR_INVALID_MODE;
+	if (context.isTxMode != 0) return NRF24_OK;
+
 	// flush the RX queue
 	nrf24_csn_digitalWrite(LOW);
 	spi_transfer(FLUSH_RX);
@@ -421,13 +436,69 @@ void nrf24_startWriting()
 	nrf24_ce_digitalWrite(LOW);
 	spi_setRegister(CONFIG, (1 << PWR_UP) | (0 << PRIM_RX) );
 	nrf24_ce_digitalWrite(HIGH);
+
+	context.isTxMode = TRUE;
+
+	return NRF24_OK;
 }
 
 
-void nrf24_stopWriting()
+uint8_t nrf24_stopTransmission()
 {
+	if (context.isTxMode == 0) return NRF24ERR_INVALID_MODE;
+
+	// change back the RX address for pipe 0
+	spi_writeRegister(RX_ADDR_P0, (uint8_t*)&context.firstPipeAddress, sizeof(uint32_t));
 	// put the radio in standby-I
 	nrf24_ce_digitalWrite(LOW);
+
+	context.isTxMode = FALSE;
+
+	return NRF24_OK;
+}
+
+
+uint8_t nrf24_waitTransmission()
+{
+	uint8_t status, result = 0xFF;
+	uint32_t sentAt = 0;
+
+	if (context.isTxMode == 0) return NRF24ERR_INVALID_MODE;
+
+	// This function will block until get TX_DS (transmission completed and ack'd)
+	// or MAX_RT (maximum retries, transmission failed). Additionaly, have a timeout
+	// (60ms) in case the radio don't set any flag.
+	sentAt = clock();
+	do
+	{
+		// read the current status
+		nrf24_csn_digitalWrite(LOW);
+		status = spi_transfer(NOP);
+		nrf24_csn_digitalWrite(HIGH);
+		// check if sending successful (TX_DS)
+		if ( status & (1 << TX_DS) )
+			result = NRF24_OK;
+		else
+		// check if max retries exceded (MAX_RT)
+		if ( status & (1 << MAX_RT) )
+			result = NRF24ERR_MAX_RETRANSMISSIONS;
+		else
+		// check if the timeout is reached
+		if ( clock() - sentAt < 60000)
+			result = NRF24ERR_TIMEOUT;
+	} while(result != 0xFF);
+
+	// clear the RX_DR, TX_DS and MAX_RT flags
+	spi_setRegister(STATUS, (1 << RX_DR) | (1 << TX_DS) | (1 << MAX_RT));
+
+	return result;
+}
+
+
+void nrf24_standby()
+{
+	nrf24_ce_digitalWrite(LOW);
+	spi_setRegister(CONFIG, spi_getRegister(CONFIG, 0) | (1 << PWR_UP) );
 }
 
 
@@ -443,17 +514,10 @@ void nrf24_powerDown()
 }
 
 
-void nrf24_standby()
-{
-	nrf24_ce_digitalWrite(LOW);
-	spi_setRegister(CONFIG, spi_getRegister(CONFIG, 0) | (1 << PWR_UP) );
-}
-
-
 uint8_t spi_transfer(
 	uint8_t tx )
 {
-	uint8_t i = 0;
+	//uint8_t i = 0;
 	uint8_t rx = 0;    
 
 	nrf24_sck_digitalWrite(LOW);
@@ -496,7 +560,7 @@ uint8_t spi_transfer(
 	return rx;
 }
 
-/* send and receive multiple bytes over SPI */
+
 void spi_transferSync(
 	uint8_t* dataout,
 	uint8_t* datain,
@@ -507,7 +571,7 @@ void spi_transferSync(
 	for(i=0;i<len;i++) datain[i] = spi_transfer(dataout[i]);
 }
 
-/* send multiple bytes over SPI */
+
 void spi_transmitSync(
 	uint8_t* dataout,
 	uint8_t len)
@@ -517,7 +581,7 @@ void spi_transmitSync(
 	for(i=0;i<len;i++) spi_transfer(dataout[i]);
 }
 
-/* Clocks only one byte into the given nrf24 register */
+
 void spi_setRegister(
 	uint8_t reg,
 	uint8_t value)
@@ -528,7 +592,7 @@ void spi_setRegister(
     nrf24_csn_digitalWrite(HIGH);
 }
 
-/* Read a single byte from the register of the nrf24 */
+
 uint8_t spi_getRegister(
 	uint8_t reg,
 	uint8_t *value )
@@ -542,7 +606,7 @@ uint8_t spi_getRegister(
 	return temp;
 }
 
-/* Read single register from nrf24 */
+
 void spi_readRegister(
 	uint8_t reg,
 	uint8_t* value,
@@ -554,7 +618,7 @@ void spi_readRegister(
     nrf24_csn_digitalWrite(HIGH);
 }
 
-/* Write to a single register of nrf24 */
+
 void spi_writeRegister(
 	uint8_t reg,
 	const uint8_t* value,

@@ -296,32 +296,20 @@ static uint8_t net_write(
 	rnp_address_t address )
 {
 	uint8_t result;
-	uint8_t observe_tx;
-	uint8_t status;
-	uint32_t sentAt = 0;
 	rf24_address_t physical;
 
 	result = net_getRadioAddress(address, &physical);
 	if (result != NET_OK) return result;
 
-	// stop listening incoming pckets
+	// stop listening incoming packets
 	nrf24_stopListening();
-	// open the pipe zero for writing
-	nrf24_openWritingPipe(physical);
-
-	// This function will block until get TX_DS (transmission completed and ack'd)
-	// or MAX_RT (maximum retries, transmission failed). Additionaly, have a timeout
-	// case the radio don't set any flag.
-	sentAt = net_getMillis();
-	do
+	// start the transmission
+	if ( nrf24_startTransmission() == NRF24_OK )
 	{
-		// TODO: get the OBSERVE_TX and STATUS in one step
-		spi_getRegister(OBSERVE_TX, &observe_tx);
-		spi_getRegister(STATUS, &status);
-		status &= ( 1 << TX_DS | 1 << MAX_RT );
+		result = nrf24_transmit(physical, context->frameBuffer, NET_FRAME_LENGTH);
+		if (result == NRF24_OK) nrf24_waitTransmission();
+		nrf24_stopTransmission();
 	}
-	while( status == 0 && ( net_getMillis() - sentAt < 500 ) );
-
 	// back to listening mode
 	nrf24_startListening();
 
