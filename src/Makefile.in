@@ -1,0 +1,9 @@
+#!/bin/make -f
+
+CFLAGS:=$(CFLAGS) -Wall -ggdb
+
+clean:
+	$(RM) $(REMOVE_OBJECTS)
+
+%.o : %.c
+	$(CC) $(CFLAGS) -c $< -o $@

@@ -1,18 +1,15 @@
 #!/bin/make -f
 
 
-CFLAGS:=-Wall -ggdb
 OBJECTS=network.o \
-	nrf24.o \
-	nrf24drv.o \
+	nrf24/nrf24.o \
+	nrf24/nrf24drv.o \
 	demo.o \
 	ncmp.o
 
+REMOVE_OBJECTS:=$(REMOVE_OBJECTS) $(OBJECTS)
+
 default: $(OBJECTS)
-	$(CC) -o demo $(OBJECTS) -I. -fno-exceptions
+	$(CC) -o demo $(OBJECTS) -I.
 
-clean:
-	$(RM) $(OBJECTS)
-
-%.o : %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+include ../Makefile.in 

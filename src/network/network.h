@@ -8,7 +8,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "nrf24.h"
+#include "nrf24/nrf24.h"
 #include "rnp.h"
 
 
@@ -94,7 +94,7 @@ typedef struct
 	*/
 	uint8_t frameQueue[FRAME_QUEUE_ENTRIES * NET_FRAME_LENGTH];
 
-	nrf24_context_t *radio;
+	//nrf24_context_t *radio;
 
 } network_context_t;
 
