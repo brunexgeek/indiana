@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <time.h>
+#include <string.h>
 #include "nrf24l01p.h"
 
 

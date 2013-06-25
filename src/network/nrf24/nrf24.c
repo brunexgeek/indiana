@@ -406,6 +406,9 @@ uint8_t nrf24_startListening()
 	spi_setRegister(CONFIG, (1 << PWR_UP) | (1 << PRIM_RX) );
 	nrf24_ce_digitalWrite(HIGH);
 
+	context.isRxMode = TRUE;
+	printf("Radio is listening\n");
+
 	return NRF24_OK;
 }
 
@@ -416,6 +419,9 @@ uint8_t nrf24_stopListening()
 
 	// put the radio in standby-I
 	nrf24_ce_digitalWrite(LOW);
+
+	context.isRxMode = FALSE;
+	printf("Radio is not listening\n");
 
 	return NRF24_OK;
 }
@@ -438,6 +444,7 @@ uint8_t nrf24_startTransmission()
 	nrf24_ce_digitalWrite(HIGH);
 
 	context.isTxMode = TRUE;
+	printf("Radio is ready to transmit\n");
 
 	return NRF24_OK;
 }
@@ -453,6 +460,7 @@ uint8_t nrf24_stopTransmission()
 	nrf24_ce_digitalWrite(LOW);
 
 	context.isTxMode = FALSE;
+	printf("Radio is not ready to transmit\n");
 
 	return NRF24_OK;
 }

@@ -35,7 +35,8 @@ static uint8_t net_write(
 
 
 uint8_t net_initialize(
-	network_context_t *context )
+	network_context_t *context,
+	uint8_t listenMode )
 {
 	if (context == 0) return NETERR_INVALID_INPUT_POINTER;
 	memset(context, 0, sizeof(network_context_t));
@@ -127,6 +128,18 @@ uint8_t net_start(
 }
 
 
+void net_standby()
+{
+	nrf24_stopListening();
+}
+
+
+void net_powerUp()
+{
+	nrf24_startListening();
+}
+
+
 void net_update(
 	network_context_t *context )
 {
@@ -149,6 +162,7 @@ void net_update(
 			net_enqueue(context);
 		else
 			net_transmit(context);
+		break;   /* DEBUG */
 	}
 }
 
@@ -483,7 +497,7 @@ uint8_t net_setAddress(
 	network_context_t *context,
 	rnp_address_t address )
 {
-	// check whether given the broadcast address
+	// check whether given address is the broadcast address
 	if ( !net_isValidHostAddress(address) )
 		return NETERR_INVALID_ADDRESS;
 	context->hostAddress = address;

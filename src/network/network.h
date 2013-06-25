@@ -28,6 +28,11 @@
 #define NETERR_PACKET_TOO_LONG          ((uint8_t)0x06)
 #define NETERR_INVALID_ADDRESS          ((uint8_t)0x07)
 
+/// The listen mode will be activated immediately.
+#define NET_LISTEN_AUTO                 ((uint8_t)0x00)
+/// The listen mode will be activated manually.
+#define NET_LISTEN_MANUAL               ((uint8_t)0x01)
+
 
 #if (ENABLE_REDUCE_MEMORY_FOOTPRINT == 0)
 	#define FRAME_QUEUE_ENTRIES         0x02
