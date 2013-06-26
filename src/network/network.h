@@ -16,7 +16,7 @@
 #define false 0
 
 
-#define ENABLE_REDUCE_MEMORY_FOOTPRINT 1
+#define ENABLE_REDUCE_MEMORY_FOOTPRINT 0
 
 
 #define NET_OK                          ((uint8_t)0x00)
@@ -71,23 +71,23 @@ typedef struct
 	*/
 	uint16_t hostAddress;
 
-#if (ENABLE_REDUCE_MEMORY_FOOTPRINT == 0)
 	uint16_t hostAddressMask;
-#endif
 
 #if (ENABLE_DIRECT_SEND == 1)
 	uint16_t unreachables[2];
 #endif
 
-	uint8_t initialized : 1;
+	uint16_t initialized : 1;
 
-	uint8_t nextFrame : 2;
+	uint16_t listenAuto : 1;
 
-	uint8_t rnpNextPacketId : 5;
+	uint16_t nextFrame : 2;
 
-	uint8_t rnpPacketMaxHop : 4;
+	uint16_t rnpNextPacketId : 4;
 
-	uint8_t rnpPacketOptions : 4;
+	uint16_t rnpPacketMaxHop : 4;
+
+	uint16_t rnpPacketOptions : 4;
 
 	/** 
 	 * Space to put the frame that will be sent/received over the air.
@@ -108,7 +108,8 @@ typedef struct
 
 
 uint8_t net_initialize(
-	network_context_t *context );
+	network_context_t *context,
+	uint8_t listenMode );
 
 uint8_t net_terminate(
 	network_context_t *context );

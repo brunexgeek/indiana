@@ -19,12 +19,12 @@ const uint8_t PHYSICAL_DIGITS[] =
 static uint8_t net_enqueue(
 	network_context_t *context );
 
-static uint8_t net_dequeue(
+/*static uint8_t net_dequeue(
 	network_context_t *context );
 
 static uint8_t net_peek(
 	network_context_t *context,
-	rnp_header_t* header);
+	rnp_header_t* header);*/
 
 static uint8_t net_transmit(
 	network_context_t *context );
@@ -45,6 +45,7 @@ uint8_t net_initialize(
 	context->rnpNextPacketId = 1;
 	context->rnpPacketMaxHop = 10;
 	context->rnpPacketOptions = RNP_OPTION_ACK | RNP_OPTION_RETRANSMIT;
+	context->listenAuto = listenMode == NET_LISTEN_AUTO;
 
 	nrf24_initialize();
 
@@ -84,7 +85,7 @@ uint8_t net_zeroconf(
 	nrf24_setPayloadLength(NET_FRAME_LENGTH);
 	// configure the radio pipelines and start listening
 	nrf24_openReadingPipe(0, BROADCAST_ADDRESS);
-	nrf24_startListening();
+	if (context->listenAuto) nrf24_startListening();
 	// try to find some parent to adopt us
 	while (1)
 	{
@@ -122,7 +123,7 @@ uint8_t net_start(
 	// configure the radio pipelines and start listening
 	nrf24_openReadingPipe(0, BROADCAST_ADDRESS);
 	nrf24_openReadingPipe(1, address);
-	nrf24_startListening();
+	if (context->listenAuto) nrf24_startListening();
 
 	return NET_OK;
 }
@@ -180,7 +181,7 @@ static uint8_t net_enqueue(
 }
 
 
-static uint8_t net_dequeue(
+/*static uint8_t net_dequeue(
 	network_context_t *context )
 {
 	// check whether have some entry in the queue
@@ -191,10 +192,10 @@ static uint8_t net_dequeue(
 	context->nextFrame--;
 	memcpy(context->frameBuffer, context->frameQueue + context->nextFrame, NET_FRAME_LENGTH );
 	return NET_OK;
-}
+}*/
 
 
-static uint8_t net_peek(
+/*static uint8_t net_peek(
 	network_context_t *context,
 	rnp_header_t* header)
 {
@@ -204,7 +205,7 @@ static uint8_t net_peek(
 	// Copy the next available frame from the queue into the provided buffer
 	memcpy(&header, context->frameQueue + context->nextFrame, sizeof(rnp_header_t));
 	return NET_OK;
-}
+}*/
 
 
 uint8_t net_receive(
@@ -325,7 +326,7 @@ static uint8_t net_write(
 		nrf24_stopTransmission();
 	}
 	// back to listening mode
-	nrf24_startListening();
+	if (context->listenAuto) nrf24_startListening();
 
 	return NET_OK;
 }
@@ -350,20 +351,12 @@ uint8_t net_getNextHop(
 		if (net_isChild(context, destination))
 		{
 			// discover what child node must receive the packet
-#if (ENABLE_REDUCE_MEMORY_FOOTPRINT == 1)
-			uint16_t mask = NET_HMASK(context->hostAddress) << 3 | 0x07;
-#else
 			uint16_t mask = (context->hostAddressMask << 3 | 0x07);
-#endif
 			*nextHop = destination & mask;
 		}
 		else
 			// use the parent as next hop
-#if (ENABLE_REDUCE_MEMORY_FOOTPRINT == 1)
-			*nextHop = context->hostAddress & (NET_HMASK(context->hostAddress) >> 3);
-#else
 			*nextHop = context->hostAddress & (context->hostAddressMask) >> 3;
-#endif
 	}
 
 	return NET_OK;
@@ -472,11 +465,7 @@ bool net_isDirectChild(
 	if ( !net_isChild(context, address) ) return false;
 	
 	// Does it only have ONE more level than us?
-#if (ENABLE_REDUCE_MEMORY_FOOTPRINT == 1)
-	uint16_t child_node_mask = ( ~ NET_HMASK(context->hostAddress) ) << 3;
-#else
 	uint16_t child_node_mask = ( ~ context->hostAddressMask ) << 3;
-#endif
 	return ( context->hostAddress & child_node_mask ) == 0 ;
 }
 
@@ -485,11 +474,7 @@ bool net_isChild(
 	network_context_t *context,
 	rnp_address_t address )
 {
-#if (ENABLE_REDUCE_MEMORY_FOOTPRINT == 1)
-	return ( address & NET_HMASK(context->hostAddress) ) == context->hostAddress;
-#else
 	return ( address & context->hostAddressMask ) == context->hostAddress;
-#endif
 }
 
 
@@ -501,25 +486,7 @@ uint8_t net_setAddress(
 	if ( !net_isValidHostAddress(address) )
 		return NETERR_INVALID_ADDRESS;
 	context->hostAddress = address;
-#if (ENABLE_REDUCE_MEMORY_FOOTPRINT == 0)
 	context->hostAddressMask = NET_HMASK(context->hostAddress);
-#endif
-	// generate the physical address
-	//result = net_getRadioAddress(address, &context->physNodeAddress);
-	//if (result != NET_OK) return result;
-		/*for (i = 0; i < 5; ++i)
-			if ((context.nodeAddress >> (i * 3)) == 0) break;
-		context.nodeAddressMask = 0x7FFF;
-		context.physNodeAddressMask = 0x000FFFFF;
-		context.nodeAddressMask = context.nodeAddressMask >> (15 - i * 3);
-		context.physNodeAddressMask = context.physNodeAddressMask >> (20 - i * 4);*/
-	// calculate the address mask
-	//context->physNodeAddressMask = NET_RMASK(context->physNodeAddress);
-
-	/*printf("     Node Address : 0%05o\n", context->hostAddress);
-	printf("Node Address Mask : 0%05o\n", context->hostAddressMask);*/
-	/*printf("     Phys Address : 0%08X\n", context.physNodeAddress);
-	printf("Phys Address Mask : 0%08X\n", context.physNodeAddressMask);*/
 
 	return NET_OK;
 }
