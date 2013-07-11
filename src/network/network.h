@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <time.h>
 
 #include "nrf24/nrf24.h"
 #include "rnp.h"
@@ -89,7 +88,7 @@ typedef struct
 
 	uint16_t rnpPacketOptions : 4;
 
-	/** 
+	/**
 	 * Space to put the frame that will be sent/received over the air.
 	 */
 	uint8_t frameBuffer[NET_FRAME_LENGTH];

@@ -1,6 +1,6 @@
 #!/bin/make -f
 
-CFLAGS:=$(CFLAGS) -Wall -ggdb
+CFLAGS:=$(CFLAGS) -Wall -ggdb -I../ -mmcu=msp430g2553
 
 clean:
 	$(RM) $(REMOVE_OBJECTS)

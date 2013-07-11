@@ -5,15 +5,14 @@ static rf24_address_t EMPTY_PHYS_ADDRESS = 0xE3300000;
 
 static uint16_t BROADCAST_ADDRESS = 077777;
 
-const rf24_address_t BROADCAST_PHYS_ADDRESS = 0xE333CCCC;
+static const rf24_address_t BROADCAST_PHYS_ADDRESS = 0xE333CCCC;
 
-const uint8_t LOGICAL_DIGITS[] =
+static const uint8_t LOGICAL_DIGITS[] =
 	{ 0x03, 0x0F, 0x0E, 0x06, 0x01, 0x09, 0x0B, 0x04 };
 
-const uint8_t PHYSICAL_DIGITS[] =
+static const uint8_t PHYSICAL_DIGITS[] =
 	{ 0xFF, 0x04, 0xFF, 0x00, 0x07, 0xFF, 0x03, 0xFF,
 	  0xFF, 0x05, 0xFF, 0x06, 0xFF, 0xFF, 0x02, 0x01 };
-
 
 
 static uint8_t net_enqueue(
@@ -174,7 +173,7 @@ static uint8_t net_enqueue(
 	// check whether have a free slot in the queue
 	if ( context->nextFrame >= FRAME_QUEUE_ENTRIES )
 		return NETERR_QUEUE_FULL;
-		
+
 	memcpy( context->frameQueue + context->nextFrame, context->frameBuffer, NET_FRAME_LENGTH );
 	context->nextFrame++;
 	return NET_OK;
@@ -187,7 +186,7 @@ static uint8_t net_enqueue(
 	// check whether have some entry in the queue
 	if ( context->nextFrame == 0 )
 		return NETERR_QUEUE_EMPTY;
-	
+
 	// retrieve the current frame
 	context->nextFrame--;
 	memcpy(context->frameBuffer, context->frameQueue + context->nextFrame, NET_FRAME_LENGTH );
@@ -201,7 +200,7 @@ static uint8_t net_enqueue(
 {
 	if ( context->nextFrame == 0 )
 		return NETERR_QUEUE_EMPTY;
-	
+
 	// Copy the next available frame from the queue into the provided buffer
 	memcpy(&header, context->frameQueue + context->nextFrame, sizeof(rnp_header_t));
 	return NET_OK;
@@ -220,7 +219,7 @@ uint8_t net_receive(
 	if ( context->nextFrame == 0 )
 		return NETERR_QUEUE_EMPTY;
 
-	// move the current frame pointer back one in the queue 
+	// move the current frame pointer back one in the queue
 	context->nextFrame -= NET_FRAME_LENGTH;
 	// calculate how much data can be copied
 	if ( *length > NET_FRAME_LENGTH - sizeof(rnp_header_t) )
@@ -368,7 +367,7 @@ uint8_t net_addUnreachable(
 	uint16_t address )
 {
 	int slot = -1, c = 0;
-	
+
 	// find some free slot
 	for (c = 0; c < sizeof(context->unreachables) && context->unreachables[c] != 0; ++c)
 	{
@@ -385,7 +384,7 @@ uint8_t net_addUnreachable(
 	if (c < 5)
 		slot = c;
 	else
-	// if we have not some unreachable not use until now, use any
+	// if we have not some unreachable unused until now, use any
 	if (slot < 0)
 		slot = 0;
 printf("Adding 0%05o to unreachables[%d]\n", address, slot);
@@ -463,7 +462,7 @@ bool net_isDirectChild(
 
 	// First, is it even a descendant?
 	if ( !net_isChild(context, address) ) return false;
-	
+
 	// Does it only have ONE more level than us?
 	uint16_t child_node_mask = ( ~ context->hostAddressMask ) << 3;
 	return ( context->hostAddress & child_node_mask ) == 0 ;
@@ -583,13 +582,13 @@ uint8_t net_getRadioAddress(
 
 uint32_t net_getMillis()
 {
-	return clock();
+	return 0;//clock();
 }
 
 
 void dumpBits( uint16_t n )
 {
-	int b = 0;
+/*	int b = 0;
 	for (b = 16; b >= 0; --b)
 	{
 		if (n & (1 << b))
@@ -598,7 +597,7 @@ void dumpBits( uint16_t n )
 			printf("0");
 		if (b % 8 == 0) printf(" ");
 	}
-	printf("\n");
+	printf("\n");*/
 }
 
 

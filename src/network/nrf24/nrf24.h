@@ -5,9 +5,9 @@
 * can do whatever you want with this stuff. If we meet some day, and you think
 * this stuff is worth it, you can buy me a coffee in return.
 * -----------------------------------------------------------------------------
-* This library is based on this library: 
+* This library is based on this library:
 *   https://github.com/aaronds/arduino-nrf24l01
-* Which is based on this library: 
+* Which is based on this library:
 *   http://www.tinkerer.eu/AVRLib/nRF24L01
 * -----------------------------------------------------------------------------
 */
@@ -15,8 +15,6 @@
 #define NRF24
 
 #include <stdint.h>
-#include <unistd.h>
-#include <time.h>
 #include <string.h>
 #include <stdio.h>
 #include "nrf24l01p.h"
@@ -37,7 +35,7 @@
 
 /**
  * -6dBm
- */ 
+ */
 #define NRF24_PWR_HIGH                  0x02
 
 /**
@@ -271,6 +269,8 @@ void nrf24_standby();
  * Put the radio in power down mode.
  */
 void nrf24_powerDown();
+
+uint16_t nrf24_getMacAddress();
 
 /*
  * SPI functions.

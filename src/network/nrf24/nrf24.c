@@ -5,9 +5,9 @@
 * can do whatever you want with this stuff. If we meet some day, and you think
 * this stuff is worth it, you can buy me a coffee in return.
 * -----------------------------------------------------------------------------
-* This library is based on this library: 
+* This library is based on this library:
 *   https://github.com/aaronds/arduino-nrf24l01
-* Which is based on this library: 
+* Which is based on this library:
 *   http://www.tinkerer.eu/AVRLib/nRF24L01
 * -----------------------------------------------------------------------------
 */
@@ -17,6 +17,7 @@
 
 static nrf24_context_t context;
 
+static const char NRF24_MAC[] = "NRF24MAC\0\0";
 
 static void nrf24_config(
 	uint8_t channel,
@@ -26,7 +27,7 @@ static void nrf24_config(
 	payloadLength = payloadLength & 0x3F;
 	// set RF channel
 	spi_setRegister(RF_CH, channel);
-	// set length of incoming payload 
+	// set length of incoming payload
 	spi_setRegister(RX_PW_P0, payloadLength);
 	spi_setRegister(RX_PW_P1, payloadLength);
 	spi_setRegister(RX_PW_P2, payloadLength);
@@ -281,7 +282,7 @@ uint8_t nrf24_receive(
 	// TODO: check whether the RX FIFO is empty
 
 	// Pull down chip select
-	nrf24_csn_digitalWrite(LOW);                               
+	nrf24_csn_digitalWrite(LOW);
 
 	// Send cmd to read rx payload
 	spi_transfer( R_RX_PAYLOAD );
@@ -330,7 +331,7 @@ uint8_t nrf24_transmit(
 
 	// wait for 10us to ensure the at least one packet will be sent if
 	// the 'stopTransmission' function is called immidiately
-	usleep(10);
+	//usleep(10);
 
 	return NRF24_OK;
 }
@@ -381,7 +382,7 @@ uint8_t nrf24_getStatus()
     else if((rv & ((1 << MAX_RT))))
     {
         return NRF24_MESSAGE_LOST;
-    }  
+    }
     // Probably still sending ...
     else
     {
@@ -400,7 +401,7 @@ uint8_t nrf24_startListening()
 	spi_transfer(FLUSH_RX);
 	nrf24_csn_digitalWrite(HIGH);
 	// clear the RX_DR, TX_DS and MAX_RT flags
-	spi_setRegister(STATUS,(1<<RX_DR)|(1<<TX_DS)|(1<<MAX_RT)); 
+	spi_setRegister(STATUS,(1<<RX_DR)|(1<<TX_DS)|(1<<MAX_RT));
 	// power up the radio in RX mode
 	nrf24_ce_digitalWrite(LOW);
 	spi_setRegister(CONFIG, (1 << PWR_UP) | (1 << PRIM_RX) );
@@ -476,7 +477,7 @@ uint8_t nrf24_waitTransmission()
 	// This function will block until get TX_DS (transmission completed and ack'd)
 	// or MAX_RT (maximum retries, transmission failed). Additionaly, have a timeout
 	// (60ms) in case the radio don't set any flag.
-	sentAt = clock();
+	sentAt = 0;//clock();
 	do
 	{
 		// read the current status
@@ -492,7 +493,7 @@ uint8_t nrf24_waitTransmission()
 			result = NRF24ERR_MAX_RETRANSMISSIONS;
 		else
 		// check if the timeout is reached
-		if ( clock() - sentAt < 60000)
+		if ( /*clock()*/0 - sentAt < 60000)
 			result = NRF24ERR_TIMEOUT;
 	} while(result != 0xFF);
 
@@ -522,11 +523,17 @@ void nrf24_powerDown()
 }
 
 
+uint16_t nrf24_getMacAddress()
+{
+	return *((uint16_t*)(NRF24_MAC+8));
+}
+
+
 uint8_t spi_transfer(
 	uint8_t tx )
 {
 	//uint8_t i = 0;
-	uint8_t rx = 0;    
+	uint8_t rx = 0;
 
 	nrf24_sck_digitalWrite(LOW);
 
@@ -636,4 +643,9 @@ void spi_writeRegister(
     spi_transfer(W_REGISTER | (REGISTER_MASK & reg));
     spi_transmitSync((uint8_t*)value,len);
     nrf24_csn_digitalWrite(HIGH);
+}
+
+
+int putchar(int character) {
+    return 1;
 }
